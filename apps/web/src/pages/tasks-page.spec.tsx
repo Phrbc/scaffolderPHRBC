@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
@@ -24,6 +24,8 @@ vi.mock('../lib/api-client', () => ({
           priority: 'HIGH',
           dueDate: '2026-12-31T00:00:00.000Z',
           ownerId: 'usr-1',
+          categoryId: 'cat-1',
+          category: { id: 'cat-1', name: 'Faculdade', color: '#10B981' },
           createdAt: '2026-08-31T10:00:00.000Z',
           updatedAt: '2026-08-31T10:00:00.000Z',
         },
@@ -34,6 +36,24 @@ vi.mock('../lib/api-client', () => ({
         total: 1,
         totalPages: 1,
       },
+    },
+    status: 200,
+    headers: new Headers(),
+  }),
+  categoriesControllerFindAll: vi.fn().mockResolvedValue({
+    data: {
+      data: [
+        {
+          id: 'cat-1',
+          name: 'Faculdade',
+          color: '#10B981',
+          ownerId: 'usr-1',
+          taskCount: 1,
+          createdAt: '2026-08-31T10:00:00.000Z',
+          updatedAt: '2026-08-31T10:00:00.000Z',
+        },
+      ],
+      meta: { page: 1, pageSize: 100, total: 1, totalPages: 1 },
     },
     status: 200,
     headers: new Headers(),
@@ -64,5 +84,23 @@ describe('TasksPage', () => {
     expect(screen.getByText('Definir pipeline no GitHub Actions')).toBeInTheDocument();
     expect(screen.getAllByText('Alta').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Pendente').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows the task category badge and the category filter options', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TasksPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByTitle('Categoria: Faculdade')).toBeInTheDocument();
+
+    const filter = screen.getByLabelText('Filtrar por categoria');
+    expect(await within(filter).findByRole('option', { name: 'Faculdade' })).toBeInTheDocument();
+    expect(within(filter).getByRole('option', { name: 'Sem categoria' })).toBeInTheDocument();
   });
 });

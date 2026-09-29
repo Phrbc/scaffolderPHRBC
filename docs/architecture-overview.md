@@ -19,7 +19,7 @@ flowchart TD
     end
 
     subgraph Infraestrutura["Infraestrutura de Dados & Identidade"]
-        PG[("PostgreSQL\n(Perfis, Sessões, Tasks)")]
+        PG[("PostgreSQL\n(Perfis, Sessões, Tasks, Categorias)")]
         KC["Keycloak IdP\n(Realm AppStart / OIDC)"]
     end
 
@@ -62,6 +62,8 @@ sequenceDiagram
 erDiagram
     UserProfile ||--o{ Session : "possui"
     UserProfile ||--o{ Task : "é proprietário de"
+    UserProfile ||--o{ TaskCategory : "é proprietário de"
+    TaskCategory |o--o{ Task : "classifica"
 
     UserProfile {
         uuid id PK
@@ -92,11 +94,24 @@ erDiagram
         enum priority "LOW | MEDIUM | HIGH | URGENT"
         datetime dueDate
         uuid ownerId FK
+        uuid categoryId FK "opcional"
+        datetime deletedAt
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    TaskCategory {
+        uuid id PK
+        string name "único por dono (ativas)"
+        string color "#RRGGBB"
+        uuid ownerId FK
         datetime deletedAt
         datetime createdAt
         datetime updatedAt
     }
 ```
+
+> **Categorias de tarefas:** cada usuário mantém suas próprias categorias (`TaskCategory`). Uma tarefa só pode receber uma categoria do seu próprio dono. A remoção de uma categoria é lógica e desvincula as tarefas (`categoryId = null`), sem apagá-las.
 
 ---
 
@@ -124,6 +139,11 @@ erDiagram
 | `GET` | `/api/v1/tasks/:id` | Sessão | `USER` | Detalhes da tarefa (owner ou admin) |
 | `PUT` | `/api/v1/tasks/:id` | Sessão + CSRF | `USER` | Atualiza tarefa respeitando regras de transição |
 | `DELETE`| `/api/v1/tasks/:id` | Sessão + CSRF | `USER` | Remoção lógica (*soft delete*) da tarefa |
+| `GET` | `/api/v1/categories` | Sessão | `USER` | Lista categorias do usuário com contagem de tarefas |
+| `POST` | `/api/v1/categories` | Sessão + CSRF | `USER` | Cria categoria (nome único por usuário + cor) |
+| `GET` | `/api/v1/categories/:id` | Sessão | `USER` | Detalhes da categoria (owner ou admin) |
+| `PUT` | `/api/v1/categories/:id` | Sessão + CSRF | `USER` | Renomeia ou altera a cor da categoria |
+| `DELETE`| `/api/v1/categories/:id` | Sessão + CSRF | `USER` | Remoção lógica da categoria e desvinculação das tarefas |
 
 ---
 

@@ -37,6 +37,7 @@ model UserProfile {
   updatedAt      DateTime  @updatedAt
   sessions       Session[]
   tasks          Task[]
+  taskCategories TaskCategory[]
 
   @@map("user_profiles")
 }
@@ -63,14 +64,33 @@ model Task {
   status      TaskStatus   @default(PENDING)
   priority    TaskPriority @default(MEDIUM)
   dueDate     DateTime?
-  ownerId     String       @db.Uuid
+  ownerId     String        @db.Uuid
+  categoryId  String?       @db.Uuid
   deletedAt   DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  owner       UserProfile  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  owner       UserProfile   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  category    TaskCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([ownerId])
   @@index([deletedAt])
   @@index([status])
+  @@index([categoryId])
   @@map("tasks")
+}
+
+model TaskCategory {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  color     String      @default("#3B82F6")
+  ownerId   String      @db.Uuid
+  deletedAt DateTime?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  owner     UserProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@index([ownerId])
+  @@index([deletedAt])
+  @@map("task_categories")
 }

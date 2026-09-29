@@ -36,6 +36,10 @@ status?: TasksControllerFindAllStatus;
  */
 priority?: TasksControllerFindAllPriority;
 /**
+ * Filtro por categoria: UUID da categoria ou "none" para tarefas sem categoria
+ */
+categoryId?: string;
+/**
  * Campo de ordenação
  */
 sortBy?: TasksControllerFindAllSortBy;

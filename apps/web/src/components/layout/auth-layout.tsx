@@ -7,6 +7,7 @@ import {
   KeyRound,
   LayoutDashboard,
   ListTodo,
+  Tag,
   Menu,
   Search,
   Shield,
@@ -83,6 +84,12 @@ export function AuthLayout() {
           icon: <ListTodo className="h-4 w-4 shrink-0" />,
           badge: 'Ref',
         },
+        {
+          label: 'Categorias',
+          path: '/categories',
+          icon: <Tag className="h-4 w-4 shrink-0" />,
+          badge: null,
+        },
         ...(isAdmin
           ? [
               {
@@ -113,6 +120,8 @@ export function AuthLayout() {
     switch (location.pathname) {
       case '/tasks':
         return { title: 'Tarefas', category: 'Módulos' };
+      case '/categories':
+        return { title: 'Categorias', category: 'Módulos' };
       case '/users':
         return { title: 'Usuários', category: 'Administração' };
       case '/profile':

@@ -50,6 +50,9 @@ describe('TasksService', () => {
         count: vi.fn(),
         update: vi.fn(),
       },
+      taskCategory: {
+        findFirst: vi.fn(),
+      },
     };
     service = new TasksService(prisma as unknown as PrismaService);
   });
@@ -226,6 +229,91 @@ describe('TasksService', () => {
       await expect(service.remove(mockOtherUser, mockTask.id)).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('categories', () => {
+    const mockCategory = { id: 'category-uuid-1', name: 'Faculdade', color: '#10B981' };
+
+    it('creates task linked to a category owned by the user', async () => {
+      prisma.taskCategory.findFirst.mockResolvedValue({ id: mockCategory.id });
+      prisma.task.create.mockResolvedValue({
+        ...mockTask,
+        categoryId: mockCategory.id,
+        category: mockCategory,
+      });
+
+      const result = await service.create(mockUser.id, {
+        title: 'Lista de exercícios',
+        categoryId: mockCategory.id,
+      });
+
+      expect(prisma.taskCategory.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockCategory.id, ownerId: mockUser.id, deletedAt: null },
+        }),
+      );
+      expect(prisma.task.create.mock.calls[0][0].data.categoryId).toBe(mockCategory.id);
+      expect(result.category).toEqual(mockCategory);
+      expect(result.categoryId).toBe(mockCategory.id);
+    });
+
+    it('rejects category that does not belong to the task owner', async () => {
+      prisma.taskCategory.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(mockUser.id, { title: 'Tarefa', categoryId: 'category-of-someone-else' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.task.create).not.toHaveBeenCalled();
+    });
+
+    it('serializes tasks without category as null', async () => {
+      prisma.task.findFirst.mockResolvedValue(mockTask);
+
+      const result = await service.findById(mockUser, mockTask.id);
+
+      expect(result.categoryId).toBeNull();
+      expect(result.category).toBeNull();
+    });
+
+    it('filters by category and by "none" (uncategorized)', async () => {
+      prisma.task.count.mockResolvedValue(0);
+      prisma.task.findMany.mockResolvedValue([]);
+
+      await service.findAll(mockUser, { page: 1, pageSize: 10, categoryId: mockCategory.id });
+      expect(prisma.task.findMany.mock.calls[0][0].where.categoryId).toBe(mockCategory.id);
+
+      await service.findAll(mockUser, { page: 1, pageSize: 10, categoryId: 'none' });
+      expect(prisma.task.findMany.mock.calls[1][0].where.categoryId).toBeNull();
+    });
+
+    it('validates the category against the task owner when an admin edits', async () => {
+      prisma.task.findFirst.mockResolvedValue(mockTask);
+      prisma.taskCategory.findFirst.mockResolvedValue({ id: mockCategory.id });
+      prisma.task.update.mockResolvedValue({ ...mockTask, categoryId: mockCategory.id, category: mockCategory });
+
+      await service.update(mockAdmin, mockTask.id, { categoryId: mockCategory.id });
+
+      expect(prisma.taskCategory.findFirst.mock.calls[0][0].where.ownerId).toBe(mockTask.ownerId);
+    });
+
+    it('clears the category when categoryId is null', async () => {
+      prisma.task.findFirst.mockResolvedValue({ ...mockTask, categoryId: mockCategory.id });
+      prisma.task.update.mockResolvedValue({ ...mockTask, categoryId: null, category: null });
+
+      const result = await service.update(mockUser, mockTask.id, { categoryId: null });
+
+      expect(prisma.taskCategory.findFirst).not.toHaveBeenCalled();
+      expect(prisma.task.update.mock.calls[0][0].data.categoryId).toBeNull();
+      expect(result.category).toBeNull();
+    });
+
+    it('treats category change as a detail change on COMPLETED tasks', async () => {
+      prisma.task.findFirst.mockResolvedValue({ ...mockTask, status: TaskStatusEnum.COMPLETED });
+
+      await expect(
+        service.update(mockUser, mockTask.id, { categoryId: mockCategory.id }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });
